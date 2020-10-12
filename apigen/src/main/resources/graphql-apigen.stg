@@ -15,15 +15,23 @@ import java.util.List;
 <endif>
 import com.distelli.graphql.ResolveDataFetchingEnvironment;
 import graphql.schema.DataFetchingEnvironment;
+import java.util.function.Supplier;
 
 public interface <model.name> extends ResolveDataFetchingEnvironment\<<model.name>\><model.interfaces:{ it |<if(it.type)>, <it.type><endif>}> {
+
+    public static <model.name>.Builder builder(){
+        return new Builder();
+    }
+
     public static class Builder {
 <model.fields:{ it |
 <if(!it.args)>
 
         private <it.type> _<it.name>;
+        private transient Supplier\<<it.type>\> _<it.name>Supplier;
 <endif>}>
         public Builder() {}
+
         public Builder(<model.name> src) {
 <model.fields:{ it |
 <if(!it.args)>
@@ -31,12 +39,15 @@ public interface <model.name> extends ResolveDataFetchingEnvironment\<<model.nam
             _<it.name> = src.get<it.ucname>();
 <endif>}>
         }
-
 <model.fields:{ it |
 <if(!it.args)>
-
         public Builder with<it.ucname>(<it.type> _<it.name>) {
             this._<it.name> = _<it.name>;
+            return this;
+        \}
+
+        public Builder with<it.ucname>(Supplier\<<it.type>\> _<it.name>Supplier) {
+            this._<it.name>Supplier = _<it.name>Supplier;
             return this;
         \}
 <endif>}>
@@ -49,12 +60,13 @@ public interface <model.name> extends ResolveDataFetchingEnvironment\<<model.nam
 <if(!it.args)>
 
         private <it.type> _<it.name>;
+        private transient Supplier\<<it.type>\> _<it.name>Supplier;
 <endif>}>
         protected Impl(Builder builder) {
 <model.fields:{ it |
 <if(!it.args)>
-
             this._<it.name> = builder._<it.name>;
+            this._<it.name>Supplier = builder._<it.name>Supplier;
 <endif>}>
         }
 <model.fields:{ it |
@@ -62,7 +74,7 @@ public interface <model.name> extends ResolveDataFetchingEnvironment\<<model.nam
 
         @Override
         public <it.type> get<it.ucname>() {
-            return _<it.name>;
+            return _<it.name>Supplier != null? _<it.name>Supplier.get(): _<it.name>;
         \}
 <endif>}>
         @Override
@@ -380,4 +392,38 @@ public enum <model.name> {
     <it.name>,}>
 }
 
+>>
+
+enumTypeProviderFileName(model) ::= "<if(model.enumType)><model.name>TypeProvider.java<endif>"
+enumTypeProviderGenerator(model) ::= <<
+package <model.packageName>;
+
+<model.imports:{ it |
+
+import <it>;}>
+import graphql.schema.*;
+import javax.inject.Inject;
+import javax.inject.Provider;
+import javax.inject.Named;
+
+
+@Named
+public class <model.name>TypeProvider implements Provider\<GraphQLEnumType> {
+    @Inject
+    protected <model.name>TypeProvider() {}
+    @Override
+    public GraphQLEnumType get() {
+        return GraphQLEnumType.newEnum()
+            .name("<model.name>")
+<model.fields:{ it |
+
+            .value("<it.name>", <model.name>.<it.name>, "<it.name>")}>
+            .build();
+    }
+}
+
+>>
+enumTypeProviderGuiceModule(model) ::= <<
+        types.addBinding("<model.name>")
+             .toProvider(<model.packageName>.<model.name>TypeProvider.class);
 >>
